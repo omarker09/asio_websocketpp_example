@@ -86,6 +86,7 @@ private:
     }
 
     void onMessage(websocketpp::connection_hdl, client::message_ptr msg) {
+        system("cls");
       //  std::cout << "Received message: " << msg->get_payload() << std::endl;
         nlohmann::json toJson = nlohmann::json::parse(msg->get_payload());
 
@@ -108,8 +109,11 @@ private:
 
 int main() {
     // Replace with the desired trading pair, e.g., btcusdt for Bitcoin/USDT
-    std::string tradingPair = "xrpusdt";
-    std::string binanceUri = "wss://stream.binance.com:9443/ws/" + tradingPair + "@miniTicker";
+    std::string cryptoSymbol = "btc";
+    std::string cryptoCompare = "usdt";
+
+    std::string query = cryptoSymbol + cryptoCompare;
+    std::string binanceUri = "wss://stream.binance.com:9443/ws/" + query + "@miniTicker";
 
     BinanceWebSocket binanceWs;
     binanceWs.connect(binanceUri);
