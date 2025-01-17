@@ -1,11 +1,11 @@
 ﻿  main.cpp
-C:\Users\zurd\Desktop\websocketpp\websocketpp\frame.hpp(834,13): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+C:\Users\zurd\Desktop\c++ projects\ImTiredAsio\websocketpp\websocketpp\frame.hpp(834,13): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
   (compiling source file 'main.cpp')
   
-C:\Users\zurd\Desktop\websocketpp\websocketpp\common\md5.hpp(367,29): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
+C:\Users\zurd\Desktop\c++ projects\ImTiredAsio\websocketpp\websocketpp\common\md5.hpp(367,29): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
   (compiling source file 'main.cpp')
   
-C:\Users\zurd\Desktop\websocketpp\websocketpp\sha1\sha1.hpp(176,24): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
+C:\Users\zurd\Desktop\c++ projects\ImTiredAsio\websocketpp\websocketpp\sha1\sha1.hpp(176,24): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
   (compiling source file 'main.cpp')
   
-LINK : fatal error LNK1168: cannot open C:\Users\zurd\Desktop\c++ projects\ImTiredAsio\x64\Debug\ImTiredAsio.exe for writing
+  ImTiredAsio.vcxproj -> C:\Users\zurd\Desktop\c++ projects\ImTiredAsio\x64\Debug\ImTiredAsio.exe

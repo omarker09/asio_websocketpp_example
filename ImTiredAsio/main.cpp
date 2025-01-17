@@ -1,91 +1,118 @@
 #define ASIO_STANDALONE
 #define _WEBSOCKETPP_CPP11_TYPE_TRAITS_
-#include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/server.hpp>
-#include <cstring>
+#define _WEBSOCKETPP_CPP11_RANDOM_DEVICE_
+
+#include <websocketpp/config/asio_client.hpp>
+#include <websocketpp/client.hpp>
+#include <websocketpp/common/asio.hpp>
 #include <iostream>
 #include <string>
-#include <set>
-#include <mutex>
+#include <functional>
+#include <nlohman/json.hpp>
 
-// Define the server type using Asio without TLS
-typedef websocketpp::server<websocketpp::config::asio> server;
-typedef websocketpp::connection_hdl connection_hdl;
+typedef websocketpp::client<websocketpp::config::asio_tls_client> client;
+typedef websocketpp::lib::shared_ptr<websocketpp::lib::asio::ssl::context> Ctx;
 
-std::set<connection_hdl, std::owner_less<connection_hdl>> clients;
-std::mutex clients_mutex;
-
-// Define a custom handler for messages
-void on_message(server* s, websocketpp::connection_hdl hdl, server::message_ptr msg) {
-    std::string payload = msg->get_payload();
-    std::cout << "Received message: " << payload  << std::endl;
-
-    std::lock_guard<std::mutex> lock(clients_mutex);
-    for (auto it : clients) {
-        try {
-            s->send(it, payload, msg->get_opcode());
-        }
-        catch (websocketpp::exception &e) {
-            std::cout << "Error cannot emmit the payload." << e.what() << std::endl;
-        }
-    }
-}
-
-void on_open(server* s, connection_hdl hdl) {
-    std::lock_guard<std::mutex> lock(clients_mutex);
-    clients.insert(hdl);
-    std::string alert_message = " New Client has connected.";
-    std::cerr << alert_message << std::endl;
-
-
-    for (auto it : clients) {
-        try {
-           s->send(it, alert_message, websocketpp::frame::opcode::text);
-        }
-        catch (websocketpp::exception& e) {
-            std::cerr << "Error cannot sending to the server" << e.what() << std::endl;
-        }
-    }
-}
-
-void on_close(connection_hdl hdl) {
-    std::lock_guard<std::mutex> lock(clients_mutex);
-    clients.erase(hdl);
-    std::cout << "Client has disconnected total connected : " << clients.size() << std::endl;
-}
-
-int main() {
-    // Create the server
-    server ws_server;
-    std::string ipv4_addr = "192.168.0.139";
-    int port_number = 9002;
+Ctx on_tls_init() {
+    Ctx ctx = websocketpp::lib::make_shared<websocketpp::lib::asio::ssl::context>(websocketpp::lib::asio::ssl::context::tlsv12);
 
     try {
-        // Initialize Asio
-        ws_server.init_asio();
-
-        ws_server.set_open_handler(std::bind(&on_open, &ws_server, std::placeholders::_1));
-        ws_server.set_close_handler(&on_close);
-
-        // Set the message handler
-        ws_server.set_message_handler(std::bind(&on_message, &ws_server, std::placeholders::_1, std::placeholders::_2));
-
-        // Listen on port 9002
-        ws_server.listen(port_number);
-
-        // Start the server accept loop
-        ws_server.start_accept();
-
-        // Start the Asio io_service run loop
-        std::cout << "start listening on ws://localhost:9002" << std::endl;
-        ws_server.run();
+        ctx->set_options(websocketpp::lib::asio::ssl::context::default_workarounds |
+            websocketpp::lib::asio::ssl::context::no_sslv2 |
+            websocketpp::lib::asio::ssl::context::no_sslv3 |
+            websocketpp::lib::asio::ssl::context::single_dh_use);
     }
-    catch (const websocketpp::exception& e) {
-        std::cerr << "WebSocket++ exception: " << e.what() << std::endl;
+    catch (std::exception& e) {
+        std::cout << "Error setting TLS context options: " << e.what() << std::endl;
     }
-    catch (const std::exception& e) {
-        std::cerr << "Standard exception: " << e.what() << std::endl;
+    return ctx;
+}
+
+class BinanceWebSocket {
+public:
+    BinanceWebSocket() {
+        // Initialize ASIO
+        wsClient.init_asio();
+
+        // Set up TLS
+        wsClient.set_tls_init_handler([](websocketpp::connection_hdl) {
+            return on_tls_init();
+            });
+
+        // Bind the message handler
+        wsClient.set_message_handler([this](websocketpp::connection_hdl hdl, client::message_ptr msg) {
+            onMessage(hdl, msg);
+            });
+
+        // Bind the open handler
+        wsClient.set_open_handler([this](websocketpp::connection_hdl hdl) {
+            onOpen(hdl);
+            });
+
+        // Bind the close handler
+        wsClient.set_close_handler([this](websocketpp::connection_hdl hdl) {
+            onClose(hdl);
+            });
+
+        // Bind the fail handler
+        wsClient.set_fail_handler([this](websocketpp::connection_hdl hdl) {
+            onFail(hdl);
+            });
     }
+
+    void connect(const std::string& uri) {
+        websocketpp::lib::error_code ec;
+
+        // Create a connection
+        auto conn = wsClient.get_connection(uri, ec);
+        if (ec) {
+            std::cerr << "Connection error: " << ec.message() << std::endl;
+            return;
+        }
+
+        // Save the connection handle
+        connectionHandle = conn->get_handle();
+
+        // Connect to the server
+        wsClient.connect(conn);
+
+        // Run the ASIO event loop
+        wsClient.run();
+    }
+
+private:
+    void onOpen(websocketpp::connection_hdl hdl) {
+        std::cout << "Connected to Binance WebSocket!" << std::endl;
+    }
+
+    void onMessage(websocketpp::connection_hdl, client::message_ptr msg) {
+      //  std::cout << "Received message: " << msg->get_payload() << std::endl;
+        nlohmann::json toJson = nlohmann::json::parse(msg->get_payload());
+
+        std::string btc_price = toJson["c"];
+
+        std::cout << "Bitcoin price : " << btc_price << std::endl;
+    }
+
+    void onClose(websocketpp::connection_hdl hdl) {
+        std::cout << "Connection closed!" << std::endl;
+    }
+
+    void onFail(websocketpp::connection_hdl hdl) {
+        std::cerr << "Connection failed!" << std::endl;
+    }
+
+    client wsClient;
+    websocketpp::connection_hdl connectionHandle;
+};
+
+int main() {
+    // Replace with the desired trading pair, e.g., btcusdt for Bitcoin/USDT
+    std::string tradingPair = "xrpusdt";
+    std::string binanceUri = "wss://stream.binance.com:9443/ws/" + tradingPair + "@miniTicker";
+
+    BinanceWebSocket binanceWs;
+    binanceWs.connect(binanceUri);
 
     return 0;
 }
